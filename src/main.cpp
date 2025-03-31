@@ -1,11 +1,10 @@
-#include <service.h>
+#include <service/service.h>
 
 #include <common/logging.h>
 #include <common/exception.h>
 #include <common/getopts.h>
 
 #include <iostream>
-#include <service.h>
 
 int main(int argc, const char* argv[]) {
     NCommon::GetOpts opts;
@@ -28,7 +27,14 @@ int main(int argc, const char* argv[]) {
         }
 
         ASSERT(opts.Has('c') || opts.Has("config"), "Config is required");
-        auto config = NConfig::TConfig::LoadFromFile(opts.Get("config"));
+        NConfig::TConfigPtr config = NCommon::New<NConfig::TConfig>();
+        config->LoadFromFile(opts.Get("config"));
+
+        for (const auto& c : config->LogDestinations) {
+            auto fileHandler = NLogging::CreateFileHandler(c->Path);
+            fileHandler->SetLevel(c->Level);
+            NLogging::GetLogManager().AddHandler(fileHandler);
+        }
 
         std::function<std::optional<TReading>(double)> processor;
 
@@ -47,7 +53,6 @@ int main(int argc, const char* argv[]) {
 
                 auto difference = std::chrono::system_clock::now() - startTime;
                 difference *= boost;
-                LOG_INFO("Reading: {}", value);
                 return TReading(startTime + difference, value);
             };
         } else {
@@ -60,7 +65,7 @@ int main(int argc, const char* argv[]) {
             };
         }
 
-        auto service = NCommon::New<TService>(config, processor);
+        auto service = NCommon::New<NService::TService>(config, processor);
 
         service->Start();
 

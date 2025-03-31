@@ -76,3 +76,8 @@ template <typename T>
 NCommon::TWeakPtr<T> MakeWeak(T* ptr) {
     return NCommon::TWeakPtr<T>(ptr);
 }
+
+template <typename T>
+NCommon::TWeakPtr<T> MakeWeak(TIntrusivePtr<T> ptr) {
+    return NCommon::TWeakPtr<T>(&(*ptr));
+}

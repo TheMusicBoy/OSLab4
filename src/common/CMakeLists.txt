@@ -7,6 +7,8 @@ set(SRC
     ${INCROOT}/refcounted.h
     ${SRCROOT}/intrusive_ptr.cpp
     ${INCROOT}/intrusive_ptr.h
+    ${SRCROOT}/atomic_intrusive_ptr.cpp
+    ${INCROOT}/atomic_intrusive_ptr.h
     ${SRCROOT}/weak_ptr.cpp
     ${INCROOT}/weak_ptr.h
     ${SRCROOT}/threadpool.cpp
@@ -21,10 +23,14 @@ set(SRC
     ${INCROOT}/logging.h
     ${SRCROOT}/exception.cpp
     ${INCROOT}/exception.h
+    ${SRCROOT}/config.cpp
+    ${INCROOT}/config.h
 
 )
 
 add_library(common STATIC ${SRC})
+
+target_link_libraries(common nlohmann_json)
 
 target_include_directories(common PUBLIC 
     ${PROJECT_SOURCE_DIR}/include

@@ -1,32 +1,14 @@
 #pragma once
 
-#include <config.h>
+#include "config.h"
+#include "storage.h"
 
 #include <common/periodic_executor.h>
 #include <common/threadpool.h>
 #include <ipc/serial_port.h>
 
-////////////////////////////////////////////////////////////////////////////////
 
-struct TReading {
-    std::chrono::system_clock::time_point timestamp;
-    double temperature;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-
-struct TCache
-    : NRefCounted::TRefCountedBase
-{
-    
-    std::deque<TReading> rawReadings;
-    std::deque<TReading> hourlyAverages;
-    std::deque<TReading> dailyAverages;
-    std::mutex dataMutex;
-};
-
-
-DECLARE_REFCOUNTED(TCache);
+namespace NService {
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -43,7 +25,7 @@ private:
     NCommon::TPeriodicExecutorPtr MesurePeriodicExecutor_;
 
     std::function<std::optional<TReading>(double)> Processor_;
-    TCachePtr Cache_;
+    std::unique_ptr<TTemperatureStorage> Storage_;
 
     void MesureTemperature();
 
@@ -58,3 +40,7 @@ public:
 };
 
 DECLARE_REFCOUNTED(TService);
+
+////////////////////////////////////////////////////////////////////////////////
+
+} // namespace NService

@@ -2,14 +2,8 @@ set(INCROOT "${PROJECT_SOURCE_DIR}/include/ipc")
 set(SRCROOT "${PROJECT_SOURCE_DIR}/src/ipc")
 
 set(SRC
-    ${SRCROOT}/shared_memory.cpp
-    ${INCROOT}/shared_memory.h
-
     ${SRCROOT}/serial_port.cpp
     ${INCROOT}/serial_port.h
-
-    ${SRCROOT}/subprocess.cpp
-    ${INCROOT}/subprocess.h
 )
 
 add_library(ipc STATIC ${SRC})

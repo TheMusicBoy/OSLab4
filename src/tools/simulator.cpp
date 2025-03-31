@@ -1,5 +1,8 @@
+#include <service/config.h>
+
 #include <ipc/serial_port.h>
 #include <common/logging.h>
+#include <common/getopts.h>
 
 #include <chrono>
 #include <thread>
@@ -8,20 +11,18 @@
 
 class TSimulator {
 public:
-    TSimulator(const std::string& port, unsigned baud, double multiplier)
-        : PortName(port),
-          BaudRate(baud),
-          Multiplier(multiplier),
+    TSimulator(NConfig::TSimulatorConfigPtr config)
+        : Config_(config),
           BaseTemp(20.0),
           Amplitude(15.0),
           Period(std::chrono::seconds(60)) 
     {}
 
     void Run() {
-        auto port = NCommon::New<NIpc::TComPort>(PortName, BaudRate);
+        auto port = NCommon::New<NIpc::TComPort>(Config_->SerialConfig);
         port->Open();
         
-        LOG_INFO("Temperature simulator started on {}", PortName);
+        LOG_INFO("Temperature simulator started on {}", Config_->SerialConfig->SerialPort);
 
         try {
             while (true) {
@@ -44,7 +45,7 @@ private:
         // Get duration in seconds with multiplier
         auto real_duration = now.time_since_epoch();
         double sec = duration_cast<std::chrono::duration<double>>(real_duration).count();
-        double simulated_time = sec * Multiplier;
+        double simulated_time = sec * Config_->TimeMultiplier;
 
         // Calculate seasonal variation (1 year period)
         const double yearly_period = 365.2425 * 24 * 3600; 
@@ -78,28 +79,56 @@ private:
     double current_daily_offset_ = 0;
     int last_simulated_day_ = -1;
 
+    NConfig::TSimulatorConfigPtr Config_;
+
     std::chrono::system_clock::time_point StartTime;
-    std::string PortName;
-    unsigned BaudRate;
-    double Multiplier;
     double BaseTemp;
     double Amplitude;
     std::chrono::nanoseconds Period;
 };
 
-int main(int argc, char* argv[]) {
-    if (argc < 3 || argc > 4) {
-        std::cerr << "Usage: " << argv[0] << " <PORT> <BAUD_RATE> [MULTIPLIER=1.0]\n";
-        return 1;
-    }
-
-    double multiplier = 1.0;
-    if (argc == 4) {
-        multiplier = std::stod(argv[3]);
-    }
+int main(int argc, const char* argv[]) {
+    NCommon::GetOpts opts;
+    opts.AddOption('h', "help", "Show help message");
+    opts.AddOption('c', "config", "Path to config file", true);
+    opts.AddOption('p', "port", "Serial port", true);
+    opts.AddOption('b', "baud", "Baud rate", true);
+    opts.AddOption('m', "multiplier", "Time multiplier", true);
 
     try {
-        TSimulator simulator(argv[1], std::stoi(argv[2]), multiplier);
+        opts.Parse(argc, argv);
+        
+        if (opts.Has('h')) {
+            std::cerr << "Usage: " << argv[0] << " [OPTIONS] [PORT] [BAUD] [MULTIPLIER]\n"
+                      << opts.Help() 
+                      << "\nExample with config:\n  " << argv[0] << " -c simulator_config.json\n"
+                      << "\nExample with CLI args:\n  " << argv[0] << " /dev/ttyS0 115200 60.0\n";
+            return 0;
+        }
+
+        auto config = NCommon::New<NConfig::TSimulatorConfig>();
+
+        if (opts.Has('c')) {
+            config->LoadFromFile(opts.Get("config"));
+        } else {
+            config->SerialConfig = NCommon::New<NIpc::TSerialConfig>();
+        }
+
+        if (opts.Has('p')) config->SerialConfig->SerialPort = opts.Get("p");
+        if (opts.Has('b')) config->SerialConfig->BaudRate = std::stoul(opts.Get("b"));
+        if (opts.Has('m')) config->TimeMultiplier = std::stod(opts.Get("m"));
+
+        const std::vector<std::string>& args = opts.GetPositional();
+        if (!args.empty()) {
+            config->SerialConfig->SerialPort = args[0];
+            if (args.size() > 1) config->SerialConfig->BaudRate = std::stoul(args[1]);
+            if (args.size() > 2) config->TimeMultiplier = std::stod(args[2]);
+        }
+
+        ASSERT(!config->SerialConfig->SerialPort.empty(), "Serial port must be specified");
+        ASSERT(config->SerialConfig->BaudRate, "Baud rate must be specified");
+        
+        TSimulator simulator(config);
         simulator.Run();
     } catch (const std::exception& ex) {
         LOG_ERROR("Simulator error: {}", ex.what());

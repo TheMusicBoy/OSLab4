@@ -3,8 +3,10 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <exception>
 #include <type_traits>
+#include <array>
 
 namespace NCommon {
 
@@ -58,9 +60,42 @@ void FormatImpl(std::ostringstream& result,
     FormatImpl(result, format, pos, std::forward<Rest>(rest)...);
 }
 
+static const auto& GetEscapeMap() {
+    static std::array<char, 256> s_escape_map = []() {
+        std::array<char, 256> map{};
+        map['\\'] = '\\';
+        map['\n'] = 'n';
+        map['\r'] = 'r';
+        return map;
+    }();
+    return s_escape_map;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 } // namespace detail
+
+////////////////////////////////////////////////////////////////////////////////
+
+std::string EscapeSymbols(const std::string& str);
+
+std::vector<std::string> Split(const std::string& s, const std::string& delimiter, size_t limit = 0);
+
+std::string Trim(const std::string& s);
+
+template <typename TContainer>
+std::string Join(const TContainer& elements, const std::string& delimiter = ", ") {
+    if (elements.empty()) return "";
+    
+    std::ostringstream ss;
+    for (const auto& el : elements) {
+        if (&el != &*elements.begin()) {
+            ss << delimiter;
+        }
+        ss << el;
+    }
+    return ss.str();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 

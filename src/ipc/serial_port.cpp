@@ -13,6 +13,8 @@
 #include <errno.h>
 #endif
 
+#include <set>
+
 namespace NIpc {
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,6 +22,8 @@ namespace NIpc {
 namespace {
 
 ////////////////////////////////////////////////////////////////////////////////
+
+inline const std::string LoggingSource = "SerialPort";
 
 bool ReadToNl(char* buffer, std::string& data) {
     if (char* nl = strchr(buffer, '\n')) {
@@ -42,9 +46,19 @@ bool ReadToNl(char* buffer, std::string& data) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-TComPort::TComPort(const std::string &portName, uint32_t boudRate)
-    : PortName_(portName),
-      BoudRate_(boudRate)
+void TSerialConfig::Load(const nlohmann::json& data) {
+    SerialPort = TConfigBase::LoadRequired<std::string>(data, "serial_port");
+    BaudRate = TConfigBase::LoadRequired<unsigned>(data, "baud_rate");
+
+    static const std::set<unsigned> kValidRates{9600, 19200, 38400, 57600, 115200};
+    
+    ASSERT(kValidRates.count(BaudRate), "Invalid baud rate: {}. (Valid rates: {})", BaudRate, NCommon::Join(kValidRates));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+TComPort::TComPort(TSerialConfigPtr config)
+    : Config_(config)
 {
     Open();
 }
@@ -60,8 +74,8 @@ void TComPort::Open() {
 
 #if defined(_WIN32) || defined(_WIN64)
     Desc_ = CreateFileA(
-        PortName_.c_str(),
-        GENERIC_READ,
+        Config_->SerialPort.c_str(),
+        GENERIC_READ | GENERIC_WRITE,
         0,
         NULL,
         OPEN_EXISTING,
@@ -76,7 +90,7 @@ void TComPort::Open() {
     }
 
 #else
-    Desc_ = open(PortName_.c_str(), O_RDWR | O_NOCTTY);
+    Desc_ = open(Config_->SerialPort.c_str(), O_RDWR | O_NOCTTY);
 #endif
     if (Desc_ == -1) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -139,10 +153,13 @@ void TComPort::Open() {
     tty.c_cc[VTIME] = 0;
 
     uint32_t speed;
-    switch (BoudRate_) {
+    switch (Config_->BaudRate) {
         case 9600: speed = B9600; break;
+        case 19200: speed = B19200; break;
+        case 38400: speed = B38400; break;
+        case 57600: speed = B57600; break;
         case 115200: speed = B115200; break;
-        default: THROW("Unsupported boud rate");
+        default: THROW("Unexpected boud rate: {}", Config_->BaudRate);
     }
     cfsetospeed(&tty, speed);
     cfsetispeed(&tty, speed);
@@ -270,10 +287,13 @@ bool TComPort::SetupPort() {
     }
 
     uint32_t speed;
-    switch (BoudRate_) {
+    switch (Config_->BaudRate) {
         case 9600: speed = CBR_9600; break;
+        case 19200: speed = CBR_19200; break;
+        case 38400: speed = CBR_38400; break;
+        case 57600: speed = CBR_57600; break;
         case 115200: speed = CBR_115200; break;
-        default: THROW("Unsupported boud rate");
+        default: THROW("Unsupported boud rate: {}", Config_->BaudRate);
     }
 
     dcbSerialParams.BaudRate = speed;
