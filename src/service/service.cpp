@@ -44,6 +44,10 @@ TService::TService(NConfig::TConfigPtr config, std::function<std::optional<TRead
       ThreadPool_(NCommon::New<NCommon::TThreadPool>(2)),
       Invoker_(NCommon::New<NCommon::TInvoker>(ThreadPool_))
 {
+    auto format = NDecode::ParseTemperatureFormat(Config_->SerialConfig->Format);
+    Decoder_ = NDecode::CreateDecoder(format);
+    Decoder_->SetComPort(Port_);
+
     Storage_ = std::make_unique<TFileStorage>(Config_->StorageConfig->FileStorageConfig);
 }
 
@@ -66,13 +70,13 @@ void TService::Start() {
 
 void TService::MesureTemperature() {
     try {
-        std::string response = Port_->ReadLine();
-        
-        if (response.empty()) {
-            return;
+        double value = NAN;
+
+        while (std::isnan(value)) {
+            value = Decoder_->ReadTemperature();
         }
 
-        if (auto reading = Processor_(std::stod(response))) {
+        if (auto reading = Processor_(value)) {
             Invoker_->Run(NCommon::Bind(
                 &TService::ProcessTemperature,
                 MakeWeak(this),

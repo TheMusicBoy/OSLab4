@@ -4,6 +4,9 @@ set(SRCROOT "${PROJECT_SOURCE_DIR}/src/ipc")
 set(SRC
     ${SRCROOT}/serial_port.cpp
     ${INCROOT}/serial_port.h
+
+    ${SRCROOT}/decode_encode.cpp
+    ${INCROOT}/decode_encode.h
 )
 
 add_library(ipc STATIC ${SRC})

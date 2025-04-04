@@ -6,7 +6,7 @@
 #include <common/periodic_executor.h>
 #include <common/threadpool.h>
 #include <ipc/serial_port.h>
-
+#include <ipc/decode_encode.h>
 
 namespace NService {
 
@@ -18,6 +18,7 @@ class TService
 private:
     NConfig::TConfigPtr Config_;
     NIpc::TComPortPtr Port_;
+    std::unique_ptr<NDecode::TTemperatureDecoderBase> Decoder_;
 
     NCommon::TThreadPoolPtr ThreadPool_;
     NCommon::TInvokerPtr Invoker_;
